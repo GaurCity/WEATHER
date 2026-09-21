@@ -1,0 +1,6 @@
+{
+  "name": "Paris Weather & Wardrobe Fabric Guide",
+  "description": "Real-time Paris temperature and weather conditions with personal closet management, simple fabric evaluations (cotton, wool, linen), and best fit outfit selection.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
