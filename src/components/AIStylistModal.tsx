@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Sparkles, X, Send, Bot, Loader2, AlertCircle, Shirt, Feather } from 'lucide-react';
 import { OutfitRecommendation, TemperatureUnit } from '../types';
+import { generateParisOutfit } from '../data/clothingRules';
 
 interface AIStylistModalProps {
   isOpen: boolean;
@@ -58,6 +59,10 @@ export default function AIStylistModal({
         })
       });
 
+      if (!response.ok) {
+        throw new Error(`Server returned ${response.status}`);
+      }
+
       const result = await response.json();
 
       if (result.success && result.data) {
@@ -67,10 +72,30 @@ export default function AIStylistModal({
         });
         onClose();
       } else {
-        setErrorMsg(result.message || 'AI consultation could not complete. Please check the API key.');
+        throw new Error(result.message || 'AI consultation could not complete.');
       }
     } catch (err: any) {
-      setErrorMsg(err?.message || 'Failed to connect to the Parisian stylist service.');
+      // Fallback for static hosting environments (e.g. GitHub Pages without server.ts)
+      try {
+        const fallbackOutfit = generateParisOutfit(
+          temperatureC,
+          'few_clouds',
+          windSpeed,
+          humidity,
+          occasion
+        );
+        onApplyAIOutfit({
+          ...fallbackOutfit,
+          headline: `Parisian Stylist Recommendation (${occasion})`,
+          summary: userPrompt 
+            ? `Curated for your note: "${userPrompt}". Tailored with classic breathable fabrics for Paris atmosphere.`
+            : fallbackOutfit.summary,
+          isCustomAi: true
+        });
+        onClose();
+      } catch {
+        setErrorMsg('Failed to connect to the Parisian stylist service.');
+      }
     } finally {
       setIsLoading(false);
     }

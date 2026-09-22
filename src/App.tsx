@@ -96,15 +96,40 @@ export default function App() {
     saveUserCloset(DEFAULT_USER_CLOSET);
   };
 
-  // Fetch Live Weather from Server
+  // Fetch Live Weather from Server (with client-side Open-Meteo fallback for GitHub Pages)
   const fetchParisWeather = useCallback(async () => {
     setIsLoadingWeather(true);
     try {
-      const response = await fetch('/api/weather/paris');
-      const json = await response.json();
-      
-      if (json.success && json.data) {
-        const raw = json.data;
+      let raw: any = null;
+      let source: 'live' | 'fallback' | 'simulated' = 'live';
+
+      try {
+        const response = await fetch('/api/weather/paris');
+        if (response.ok) {
+          const contentType = response.headers.get('content-type');
+          if (contentType && contentType.includes('application/json')) {
+            const json = await response.json();
+            if (json.success && json.data) {
+              raw = json.data;
+              source = json.source === 'fallback' ? 'fallback' : 'live';
+            }
+          }
+        }
+      } catch {
+        // Server route not available (e.g., static GitHub Pages hosting)
+      }
+
+      // If backend route didn't return data (e.g. GitHub Pages), fetch directly from Open-Meteo CORS-enabled public endpoint
+      if (!raw) {
+        const openMeteoUrl = 'https://api.open-meteo.com/v1/forecast?latitude=48.8566&longitude=2.3522&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,rain,showers,snowfall,weather_code,cloud_cover,wind_speed_10m,wind_direction_10m&hourly=temperature_2m,relative_humidity_2m,precipitation_probability,weather_code,wind_speed_10m&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,uv_index_max&timezone=Europe%2FParis';
+        const directRes = await fetch(openMeteoUrl);
+        if (directRes.ok) {
+          raw = await directRes.json();
+          source = 'live';
+        }
+      }
+
+      if (raw) {
         const weatherCode = raw.current?.weather_code ?? 1;
         const condMeta = CONDITION_MAP[weatherCode] || CONDITION_MAP[1];
 
@@ -196,7 +221,7 @@ export default function App() {
           },
           hourly: hourlyFormatted,
           daily: dailyFormatted,
-          source: json.source || 'live',
+          source: source || 'live',
           lastUpdated: new Date().toLocaleTimeString()
         };
 
