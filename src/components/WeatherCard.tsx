@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   CloudSun, 
   Sun, 
@@ -9,11 +9,13 @@ import {
   Droplets, 
   Thermometer, 
   Eye, 
-  Compass,
-  ArrowUpRight,
-  Sparkles
+  Compass, 
+  ArrowUpRight, 
+  Sparkles,
+  TrendingUp
 } from 'lucide-react';
 import { ParisWeatherData, TemperatureUnit } from '../types';
+import TemperatureSparkline from './TemperatureSparkline';
 
 interface WeatherCardProps {
   weather: ParisWeatherData;
@@ -24,6 +26,7 @@ interface WeatherCardProps {
 
 export default function WeatherCard({ weather, unit, isSimulated, onOpenSimulator }: WeatherCardProps) {
   const { current, hourly, daily } = weather;
+  const [selectedHourIndex, setSelectedHourIndex] = useState<number | null>(null);
 
   const formatTemp = (tempC: number) => {
     if (unit === 'fahrenheit') {
@@ -31,6 +34,14 @@ export default function WeatherCard({ weather, unit, isSimulated, onOpenSimulato
       return `${f}°F`;
     }
     return `${Math.round(tempC)}°C`;
+  };
+
+  const getQuickFabricTag = (tempC: number) => {
+    if (tempC >= 28) return 'Linen';
+    if (tempC >= 21) return 'Cotton';
+    if (tempC >= 15) return 'Trench';
+    if (tempC >= 8) return 'Wool';
+    return 'Melton';
   };
 
   const getWeatherIcon = (code: number, isDay: boolean = true, className: string = 'w-6 h-6') => {
@@ -168,31 +179,68 @@ export default function WeatherCard({ weather, unit, isSimulated, onOpenSimulato
         </div>
       </div>
 
-      {/* Hourly 24-Hour Forecast Timeline */}
+      {/* 24-Hour Temperature Trajectory Sparkline */}
       {hourly && hourly.length > 0 && (
         <div className="relative z-10 mt-2 border-t border-stone-800/80 pt-4">
-          <div className="mb-2.5 flex items-center justify-between text-xs text-stone-400 font-medium">
-            <span>Prévisions Heure par Heure (Hourly Paris Forecast)</span>
-            <span className="text-[11px] text-stone-400 italic">Scroll horizontally →</span>
+          <TemperatureSparkline
+            hourly={hourly}
+            unit={unit}
+            formatTemp={formatTemp}
+            currentTempC={current.temperature}
+            isSimulated={isSimulated}
+            selectedHourIndex={selectedHourIndex}
+            onSelectHour={setSelectedHourIndex}
+          />
+        </div>
+      )}
+
+      {/* Hourly 24-Hour Synchronized Carousel */}
+      {hourly && hourly.length > 0 && (
+        <div className="relative z-10 mt-3">
+          <div className="mb-2 flex items-center justify-between text-xs text-stone-400 font-medium">
+            <span className="flex items-center gap-1.5">
+              <span>Prévisions Détaillées (24-Hour Synchronized Feed)</span>
+              <span className="rounded-full bg-stone-800 px-2 py-0.5 text-[10px] text-amber-300 font-mono">
+                {Math.min(hourly.length, 24)}h Cycle
+              </span>
+            </span>
+            <span className="text-[11px] text-stone-500 italic">Hover sparkline or click card to inspect →</span>
           </div>
           <div className="flex gap-2.5 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-stone-700">
-            {hourly.slice(0, 14).map((hour, idx) => (
-              <div
-                key={idx}
-                className="flex flex-col items-center justify-between min-w-[64px] rounded-xl border border-stone-800/90 bg-stone-850/50 p-2.5 text-center transition-transform hover:scale-105 hover:bg-stone-800"
-              >
-                <span className="text-[11px] font-mono text-stone-400">{hour.time}</span>
-                <div className="my-1.5">
-                  {getWeatherIcon(hour.weatherCode, hour.hourNumber >= 7 && hour.hourNumber <= 21, 'w-4 h-4')}
-                </div>
-                <span className="text-xs font-bold text-stone-100">{formatTemp(hour.temperature)}</span>
-                {hour.precipitationProbability > 0 && (
-                  <span className="text-[10px] text-sky-400 mt-0.5 font-medium">
-                    {hour.precipitationProbability}%
+            {hourly.slice(0, 24).map((hour, idx) => {
+              const isSelected = selectedHourIndex === idx;
+              return (
+                <div
+                  key={idx}
+                  onPointerEnter={() => setSelectedHourIndex(idx)}
+                  onPointerLeave={() => setSelectedHourIndex(null)}
+                  onClick={() => setSelectedHourIndex(idx === selectedHourIndex ? null : idx)}
+                  className={`flex flex-col items-center justify-between min-w-[72px] rounded-xl border p-2 text-center transition-all cursor-pointer ${
+                    isSelected
+                      ? 'border-amber-400 bg-stone-800 ring-2 ring-amber-400/50 scale-105 shadow-md shadow-amber-500/10'
+                      : 'border-stone-800/90 bg-stone-850/50 hover:bg-stone-800 hover:border-stone-700'
+                  }`}
+                >
+                  <span className={`text-[11px] font-mono ${isSelected ? 'text-amber-300 font-bold' : 'text-stone-400'}`}>
+                    {hour.time}
                   </span>
-                )}
-              </div>
-            ))}
+                  <div className="my-1.5">
+                    {getWeatherIcon(hour.weatherCode, hour.hourNumber >= 7 && hour.hourNumber <= 21, 'w-4 h-4')}
+                  </div>
+                  <span className={`text-xs font-bold ${isSelected ? 'text-amber-200' : 'text-stone-100'}`}>
+                    {formatTemp(hour.temperature)}
+                  </span>
+                  <span className="mt-1 rounded-sm bg-stone-900/80 px-1.5 py-0.5 text-[9px] font-semibold text-stone-300 border border-stone-800">
+                    {getQuickFabricTag(hour.temperature)}
+                  </span>
+                  {hour.precipitationProbability > 0 && (
+                    <span className="text-[10px] text-sky-400 mt-0.5 font-medium">
+                      {hour.precipitationProbability}%
+                    </span>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
       )}

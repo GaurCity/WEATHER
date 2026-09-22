@@ -323,7 +323,16 @@ export default function App() {
                       key: activeConditionKey,
                       label: isSimulated ? `Simulated (${activeConditionKey.replace('_', ' ')})` : liveWeather.current.condition.label
                     }
-                  }
+                  },
+                  hourly: isSimulated
+                    ? (liveWeather.hourly || []).map((h) => {
+                        const tempDelta = activeTempC - (liveWeather.current?.temperature ?? activeTempC);
+                        return {
+                          ...h,
+                          temperature: Math.round((h.temperature + tempDelta) * 10) / 10
+                        };
+                      })
+                    : liveWeather.hourly
                 }}
                 unit={unit}
                 isSimulated={isSimulated}
